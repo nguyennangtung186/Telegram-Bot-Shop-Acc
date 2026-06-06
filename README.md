@@ -12,6 +12,7 @@ Toàn bộ hệ thống (bot + API + CMS + database + cron) gói gọn trong **m
 |-----|----------|
 | **Source code** | https://github.com/6c696e68/Telegram-Bot-Shop-Acc |
 | **CMS (admin) demo** | https://telegram-shop-bot.n5pskgzs9g.workers.dev/cms/ |
+| **Tài khoản CMS demo** | `admin` / `admin123` |
 | **Telegram Bot** | [@test123123123a_bot](https://t.me/test123123123a_bot) |
 | **Telegram Mini App** | [t.me/test123123123a_bot/shopaccvippro](https://t.me/test123123123a_bot/shopaccvippro) |
 
