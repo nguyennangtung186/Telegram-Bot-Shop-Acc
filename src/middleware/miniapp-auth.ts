@@ -65,6 +65,11 @@ export const miniAppAuth = createMiddleware<MiniAppEnv>(async (c, next) => {
   // 4. Định danh người mua qua telegram_id + tự tạo user nếu chưa có (Req 1.6, 3)
   const user = await getOrCreateUser(c.env.DB, parsed)
 
+  // 5. Chặn user bị ban (is_active = 0) — không cho thao tác bất kỳ API nghiệp vụ nào.
+  if (user.is_active === 0) {
+    return c.json({ success: false, data: null, error: 'Tài khoản đã bị khoá' }, 403)
+  }
+
   c.set('telegramId', parsed.telegramId)
   c.set('user', user)
 

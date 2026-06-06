@@ -19,10 +19,14 @@ const form = ref({
   bank_name: '',
   bank_account: '',
   bank_owner: '',
+  sepay_api_key: '',
   min_deposit: '20000',
   max_deposit: '100000000',
   admin_ids: '',
 })
+
+// Ẩn/hiện SePay API key (mặc định ẩn vì là thông tin bí mật)
+const showSepayKey = ref(false)
 
 async function loadConfig() {
   configLoading.value = true
@@ -35,6 +39,7 @@ async function loadConfig() {
       form.value.bank_name = c.bank_name ?? ''
       form.value.bank_account = c.bank_account ?? ''
       form.value.bank_owner = c.bank_owner ?? ''
+      form.value.sepay_api_key = c.sepay_api_key ?? ''
       form.value.min_deposit = c.min_deposit ?? '20000'
       form.value.max_deposit = c.max_deposit ?? '100000000'
       form.value.admin_ids = c.admin_ids ?? ''
@@ -193,6 +198,33 @@ onUnmounted(() => { if (revenueChart) { revenueChart.destroy(); revenueChart = n
           <div><label class="label">Chủ tài khoản</label><input v-model="form.bank_owner" class="field" placeholder="NGUYEN VAN A" /></div>
         </section>
 
+        <!-- SePay -->
+        <section class="card p-5 space-y-4">
+          <h3 class="section-head"><Icon name="key" :size="18" /> Cổng thanh toán SePay</h3>
+          <div>
+            <label class="label">SePay API Key</label>
+            <div class="key-row">
+              <input
+                v-model="form.sepay_api_key"
+                :type="showSepayKey ? 'text' : 'password'"
+                class="field"
+                placeholder="Nhập API key webhook SePay"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button
+                type="button"
+                class="key-toggle"
+                :title="showSepayKey ? 'Ẩn key' : 'Hiện key'"
+                @click="showSepayKey = !showSepayKey"
+              >
+                <Icon :name="showSepayKey ? 'eyeOff' : 'eye'" :size="16" />
+              </button>
+            </div>
+            <p class="hint">Dùng để xác thực webhook SePay (header Authorization: Apikey ...). Khớp với API Key cấu hình trên my.sepay.vn. Để trống sẽ dùng secret SEPAY_API_KEY của Worker.</p>
+          </div>
+        </section>
+
         <!-- System -->
         <section class="card p-5 space-y-4">
           <h3 class="section-head"><Icon name="settings" :size="18" /> Cài đặt hệ thống</h3>
@@ -308,6 +340,34 @@ onUnmounted(() => { if (revenueChart) { revenueChart.destroy(); revenueChart = n
   margin-top: 0.25rem;
   font-size: 0.6875rem;
   color: var(--faint);
+}
+
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.key-row .field {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.key-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-soft, #fff);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.key-toggle:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
 }
 
 .toggle {

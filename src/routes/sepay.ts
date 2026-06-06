@@ -9,12 +9,33 @@ import type { DbDeposit, DbUser } from '../types/db'
 import { sepayAuth } from '../middleware/sepay-auth'
 import { transactionService } from '../services/transaction'
 import { DEPOSIT_TTL_MS } from '../services/deposit-policy'
+import { readDepositLimits } from '../services/deposit-limits'
 import { sendMessage } from '../bot/telegram-api'
 import { formatCurrency } from '../utils/format'
 
+/**
+ * Mã chuyển khoản nội bộ: "NAP" + 4-17 ký tự alphanumeric (xem `utils/transfer-code.ts`).
+ * SePay có thể đã tự nhận diện mã vào trường `code` (khi cấu hình tiền tố "NAP" trên
+ * my.sepay.vn); nếu không, mã vẫn nằm trong `content` (nội dung CK gốc) — bắt cả hai.
+ */
 const TRANSFER_CODE_REGEX = /NAP[A-Z0-9]{4,17}/i
-const MIN_AMOUNT = 20_000
-const MAX_AMOUNT = 100_000_000
+
+/**
+ * Trích mã chuyển khoản nội bộ từ payload SePay.
+ *
+ * Ưu tiên trường `code` (mã SePay tự nhận diện — đáng tin hơn vì không bị nội dung
+ * ngân hàng chèn ký tự lạ); nếu `code` rỗng/không khớp định dạng "NAP..." thì fallback
+ * dò trong `content`. Trả mã đã upper-case hoặc `null` nếu không tìm thấy.
+ */
+function extractTransferCode(payload: SepayWebhookPayload): string | null {
+  const fromCode = payload.code?.match(TRANSFER_CODE_REGEX)
+  if (fromCode) return fromCode[0].toUpperCase()
+
+  const fromContent = payload.content.match(TRANSFER_CODE_REGEX)
+  if (fromContent) return fromContent[0].toUpperCase()
+
+  return null
+}
 
 const sepayWebhook = new Hono<AppEnv>()
 
@@ -48,14 +69,12 @@ sepayWebhook.post('/sepay', async (c) => {
     return c.json({ success: true })
   }
 
-  // Extract transfer_code từ content (Req 2.6)
-  const match = payload.content.match(TRANSFER_CODE_REGEX)
-  if (!match) {
-    console.warn('[SePay] No transfer code found in content:', payload.content)
+  // Extract transfer_code: ưu tiên field `code` của SePay, fallback `content` (Req 2.6)
+  const transferCode = extractTransferCode(payload)
+  if (!transferCode) {
+    console.warn('[SePay] No transfer code found. code/content:', payload.code, payload.content)
     return c.json({ success: true })
   }
-
-  const transferCode = match[0].toUpperCase()
 
   // Find pending deposit by transfer_code (Req 2.7). Kèm tuổi (giây) để áp luật TTL.
   const deposit = await db
@@ -78,9 +97,14 @@ sepayWebhook.post('/sepay', async (c) => {
     return c.json({ success: true })
   }
 
-  // Validate amount range (Req 2.8)
-  if (payload.transferAmount < MIN_AMOUNT || payload.transferAmount > MAX_AMOUNT) {
-    console.warn('[SePay] Amount out of range:', payload.transferAmount)
+  // Validate amount range theo hạn mức cấu hình trong `system_config` (Req 2.8, 8.2)
+  const { min: minAmount, max: maxAmount } = await readDepositLimits(db)
+  if (payload.transferAmount < minAmount || payload.transferAmount > maxAmount) {
+    console.warn(
+      '[SePay] Amount out of range:',
+      payload.transferAmount,
+      `(allowed ${minAmount}-${maxAmount})`
+    )
     return c.json({ success: true })
   }
 

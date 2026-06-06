@@ -87,6 +87,13 @@ const SCHEMA_STATEMENTS = [
     expired_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
+  `CREATE TABLE IF NOT EXISTS system_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`,
 ]
 
 async function applySchema(db: D1Database) {

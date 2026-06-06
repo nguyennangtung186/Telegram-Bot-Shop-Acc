@@ -11,6 +11,7 @@ interface User {
   first_name: string | null
   balance: number
   is_active: number
+  banned_at: string | null
   last_interaction_at: string | null
   created_at: string
   updated_at: string
@@ -66,6 +67,9 @@ const adjustAmount = ref<number | null>(null)
 const adjustReason = ref('')
 const adjustLoading = ref(false)
 const adjustError = ref('')
+
+// Ban / unban
+const banLoading = ref(false)
 
 // Computed
 const totalPages = () => Math.ceil(total.value / limit.value)
@@ -153,6 +157,25 @@ async function submitAdjust() {
     adjustError.value = 'Lỗi kết nối server'
   } finally {
     adjustLoading.value = false
+  }
+}
+
+// Toggle ban / unban (no reason needed)
+async function setBan(ban: boolean) {
+  if (!selectedUser.value) return
+
+  banLoading.value = true
+  try {
+    const action = ban ? 'ban' : 'unban'
+    const res = await api.post(`/users/${selectedUser.value.user.id}/${action}`)
+    if (res.success) {
+      await fetchUserDetail(selectedUser.value.user.id)
+      await fetchUsers()
+    }
+  } catch {
+    // handled by api client
+  } finally {
+    banLoading.value = false
   }
 }
 
@@ -249,18 +272,19 @@ onMounted(fetchUsers)
               <th>Username</th>
               <th>Tên</th>
               <th class="text-right">Số dư</th>
+              <th>Trạng thái</th>
               <th>Tương tác cuối</th>
               <th>Ngày tạo</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="7" class="text-center" style="padding-top: 2rem; padding-bottom: 2rem; color: var(--muted)">
+              <td colspan="8" class="text-center" style="padding-top: 2rem; padding-bottom: 2rem; color: var(--muted)">
                 Đang tải...
               </td>
             </tr>
             <tr v-else-if="users.length === 0">
-              <td colspan="7" class="text-center" style="padding-top: 2rem; padding-bottom: 2rem; color: var(--muted)">
+              <td colspan="8" class="text-center" style="padding-top: 2rem; padding-bottom: 2rem; color: var(--muted)">
                 Không tìm thấy người dùng nào
               </td>
             </tr>
@@ -276,6 +300,11 @@ onMounted(fetchUsers)
               <td>{{ user.first_name || '—' }}</td>
               <td class="text-right" style="font-weight: 500; color: var(--ink)">
                 {{ formatCurrency(user.balance) }}
+              </td>
+              <td>
+                <span class="badge" :class="user.is_active === 0 ? 'badge-red' : 'badge-green'">
+                  {{ user.is_active === 0 ? 'Đã khoá' : 'Hoạt động' }}
+                </span>
               </td>
               <td style="color: var(--muted)">
                 {{ user.last_interaction_at ? formatDate(user.last_interaction_at) : '—' }}
@@ -372,17 +401,54 @@ onMounted(fetchUsers)
                 <dd class="text-[13px] font-semibold" style="color: var(--ink)">{{ formatCurrency(selectedUser.user.balance) }}</dd>
               </div>
               <div class="flex items-center justify-between py-1.5">
+                <dt class="text-[13px]" style="color: var(--muted)">Trạng thái</dt>
+                <dd>
+                  <span class="badge" :class="selectedUser.user.is_active === 0 ? 'badge-red' : 'badge-green'">
+                    {{ selectedUser.user.is_active === 0 ? 'Đã khoá' : 'Hoạt động' }}
+                  </span>
+                </dd>
+              </div>
+              <div
+                v-if="selectedUser.user.is_active === 0 && selectedUser.user.banned_at"
+                class="flex items-center justify-between py-1.5"
+              >
+                <dt class="text-[13px]" style="color: var(--muted)">Thời điểm khoá</dt>
+                <dd class="text-[13px]" style="color: var(--red-fg)">{{ formatDate(selectedUser.user.banned_at) }}</dd>
+              </div>
+              <div class="flex items-center justify-between py-1.5">
                 <dt class="text-[13px]" style="color: var(--muted)">Ngày tạo</dt>
                 <dd class="text-[13px]" style="color: var(--ink-soft)">{{ formatDate(selectedUser.user.created_at) }}</dd>
               </div>
             </dl>
           </div>
 
-          <!-- Adjust Balance Button -->
-          <button class="btn btn-primary w-full mb-6" @click="openAdjustModal">
-            <Icon name="coins" :size="16" />
-            Điều chỉnh số dư
-          </button>
+          <!-- Action Buttons -->
+          <div class="flex flex-col gap-3 mb-6">
+            <button class="btn btn-primary w-full" @click="openAdjustModal">
+              <Icon name="coins" :size="16" />
+              Điều chỉnh số dư
+            </button>
+            <button
+              v-if="selectedUser.user.is_active === 1"
+              class="btn btn-secondary w-full"
+              style="color: var(--red-fg)"
+              :disabled="banLoading"
+              @click="setBan(true)"
+            >
+              <Icon name="lock" :size="16" />
+              {{ banLoading ? 'Đang xử lý...' : 'Khoá tài khoản' }}
+            </button>
+            <button
+              v-else
+              class="btn btn-secondary w-full"
+              style="color: var(--green-fg)"
+              :disabled="banLoading"
+              @click="setBan(false)"
+            >
+              <Icon name="check" :size="16" />
+              {{ banLoading ? 'Đang xử lý...' : 'Mở khoá tài khoản' }}
+            </button>
+          </div>
 
           <!-- Transactions -->
           <div class="mb-6">

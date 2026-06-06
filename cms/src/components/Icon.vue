@@ -37,6 +37,9 @@ import {
   Pencil,
   Code,
   Link,
+  KeyRound,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from '@lucide/vue'
 
@@ -78,6 +81,9 @@ const ICONS: Record<string, LucideIcon> = {
   edit: Pencil,
   code: Code,
   link: Link,
+  key: KeyRound,
+  eye: Eye,
+  eyeOff: EyeOff,
 }
 
 const component = computed(() => ICONS[props.name] ?? null)

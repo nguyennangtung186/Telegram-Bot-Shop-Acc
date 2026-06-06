@@ -11,6 +11,7 @@ import {
   FLOOD_RULE,
 } from '../bot/rate-limit'
 import { answerCallbackQuery, sendMessage } from '../bot/telegram-api'
+import { isTelegramUserBanned, BAN_NOTICE } from '../services/user-ban'
 
 /**
  * Telegram webhook route — POST /webhook/telegram
@@ -47,6 +48,18 @@ telegramWebhook.post('/telegram', async (c) => {
         return c.json({ ok: true })
       }
 
+      // Chặn user bị ban: dismiss spinner + thông báo (throttle) rồi dừng, không xử lý nghiệp vụ.
+      if (await isTelegramUserBanned(db, telegramId)) {
+        await answerCallbackQuery(botToken, update.callback_query.id, {
+          text: 'Tài khoản đã bị khoá.',
+          cache_time: 5,
+        }).catch(() => {})
+        if (shouldSendNotice(`ban:${telegramId}`) && update.callback_query.message) {
+          await sendMessage(botToken, update.callback_query.message.chat.id, BAN_NOTICE).catch(() => {})
+        }
+        return c.json({ ok: true })
+      }
+
       await handleCallbackQuery(db, botToken, update.callback_query, c.env)
     } else if (update.message) {
       telegramId = update.message.from?.id
@@ -64,6 +77,14 @@ telegramWebhook.post('/telegram', async (c) => {
           }
           return c.json({ ok: true })
         }
+      }
+
+      // Chặn user bị ban: gửi thông báo (throttle) rồi dừng, không xử lý lệnh/flow.
+      if (telegramId && (await isTelegramUserBanned(db, telegramId))) {
+        if (shouldSendNotice(`ban:${telegramId}`)) {
+          await sendMessage(botToken, update.message.chat.id, BAN_NOTICE).catch(() => {})
+        }
+        return c.json({ ok: true })
       }
 
       const text = update.message.text?.trim() ?? ''

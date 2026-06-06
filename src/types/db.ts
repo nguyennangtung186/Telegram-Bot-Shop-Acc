@@ -10,7 +10,8 @@ export interface DbUser {
   username: string | null
   first_name: string | null
   balance: number
-  is_active: number // 0 | 1
+  is_active: number // 1 = hoạt động, 0 = bị ban
+  banned_at: string | null // ISO 8601 UTC — thời điểm bị ban (null nếu đang hoạt động)
   last_interaction_at: string | null
   created_at: string
   updated_at: string

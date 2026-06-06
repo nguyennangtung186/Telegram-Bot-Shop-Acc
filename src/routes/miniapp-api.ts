@@ -38,6 +38,7 @@ import { renderSuccessMessage, escapeHtml } from '../utils/telegram-template'
 import { sendMessage, sendPhoto } from '../bot/telegram-api'
 import { consumeToken, PURCHASE_RULE } from '../bot/rate-limit'
 import { checkDepositPolicy, depositPolicyMessage } from '../services/deposit-policy'
+import { readDepositLimits } from '../services/deposit-limits'
 import { resolveBankConfig } from '../services/bank-config'
 import { generateTransferCode } from '../utils/transfer-code'
 import { generateVietQRUrl } from '../utils/vietqr'
@@ -56,15 +57,6 @@ const HOME_SHORTCUTS = ['shop', 'deposit', 'history', 'account'] as const
  * (`src/bot/callbacks/purchase.ts`) để Mini App và bot hành xử nhất quán.
  */
 const MAX_PURCHASE_QUANTITY = 50
-
-/**
- * Fallback giới hạn số tiền nạp khi `system_config` thiếu key tương ứng.
- * Giữ đồng bộ với giá trị seed của migration `0001_initial_schema.sql`
- * (`min_deposit = 20000`, `max_deposit = 100000000`) để hành vi nhất quán
- * kể cả khi config bị xoá/migrate lỗi (fail-safe, không chặn nạp hợp lệ).
- */
-const DEFAULT_MIN_DEPOSIT = 20_000
-const DEFAULT_MAX_DEPOSIT = 100_000_000
 
 /** Dữ liệu trang chủ `GET /api/app/home` (Req 4). */
 interface HomeDto {
@@ -352,33 +344,6 @@ miniAppApi.post('/purchase', async (c) => {
 
   return c.json(body)
 })
-
-/**
- * Đọc giới hạn số tiền nạp từ `system_config` (Req 8.2).
- *
- * SELECT cả hai key `min_deposit`/`max_deposit` trong một query, parse `Number`.
- * Giá trị thiếu/không hợp lệ (rỗng, không phải số nguyên dương) → dùng fallback
- * (`DEFAULT_MIN_DEPOSIT`/`DEFAULT_MAX_DEPOSIT`) để không chặn nhầm nạp hợp lệ khi
- * config bị lỗi. Nếu `min > max` (config mâu thuẫn) → hoán đổi để khoảng luôn hợp lệ.
- */
-async function readDepositLimits(db: D1Database): Promise<{ min: number; max: number }> {
-  const { results } = await db
-    .prepare("SELECT key, value FROM system_config WHERE key IN ('min_deposit', 'max_deposit')")
-    .all<{ key: string; value: string }>()
-
-  const byKey = new Map(results.map((r) => [r.key, r.value]))
-  let min = parsePositiveInt(byKey.get('min_deposit'), DEFAULT_MIN_DEPOSIT)
-  let max = parsePositiveInt(byKey.get('max_deposit'), DEFAULT_MAX_DEPOSIT)
-  if (min > max) [min, max] = [max, min]
-  return { min, max }
-}
-
-/** Parse chuỗi config sang số nguyên dương; không hợp lệ → fallback. */
-function parsePositiveInt(value: string | undefined, fallback: number): number {
-  if (value === undefined) return fallback
-  const n = Number(value)
-  return Number.isInteger(n) && n > 0 ? n : fallback
-}
 
 /** Tham số dựng caption tin nhắn VietQR cho yêu cầu nạp. */
 interface DepositCaptionParams {

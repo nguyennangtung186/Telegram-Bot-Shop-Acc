@@ -52,6 +52,15 @@ Chi tiết tính năng/endpoint/schema: xem `README.md`.
 5. **Không sửa `database_id` / secret đã có** trừ khi user yêu cầu hoặc còn placeholder.
 6. **Migration**: chỉ thêm file mới (`000N_*.sql`), không sửa migration đã chạy. Sau khi thêm cột DB nhớ cập nhật type trong `src/types/db.ts`.
 7. **Verify sau thay đổi code**: chạy `npm test` và/hoặc build CMS để chắc không vỡ. Sau deploy báo Version ID + URL.
+8. **CẤM emoji do agent tự thêm**: tuyệt đối KHÔNG chèn icon emoji vào bất cứ thứ gì agent viết — code, chuỗi message bot/Mini App, nhãn nút, text CMS, comment, README/docs, commit message. Dùng chữ thuần (vd `[x]`, `Lỗi:`, `Cảnh báo:`) thay cho emoji. NGOẠI LỆ duy nhất: emoji là **dữ liệu do người/admin nhập** (vd cột `product_types.emoji`, `success_template` admin tự soạn) hoặc user **yêu cầu rõ ràng** giữ/thêm. Khi sửa file đang có sẵn emoji, không tự ý thêm emoji mới; chỉ gỡ khi user yêu cầu.
+
+---
+
+## Quy ước UI/Style (BẮT BUỘC)
+
+- **CMS**: icon dùng component `Icon.vue` (lucide), KHÔNG dùng emoji.
+- **Bot/Mini App**: phần emoji hiện có là thiết kế cũ; giữ nguyên, KHÔNG nhân rộng. Tính năng mới do agent viết dùng chữ thuần (xem quy tắc 8 ở trên).
+- Muốn đổi toàn bộ emoji có sẵn của bot → phải có yêu cầu rõ ràng của user (thay đổi UX lớn, đụng cả `reply keyboard` matching trong `src/bot/router.ts`).
 
 ---
 

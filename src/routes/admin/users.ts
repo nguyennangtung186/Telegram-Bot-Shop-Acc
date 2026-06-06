@@ -202,4 +202,109 @@ usersRoutes.post('/:id/adjust-balance', async (c) => {
   })
 })
 
+/**
+ * POST /users/:id/ban
+ * Khoá user: set is_active = 0, ghi banned_at, viết audit_log.
+ * User bị khoá sẽ không thể nhắn bot hay thao tác Mini App. Không cần lý do.
+ */
+usersRoutes.post('/:id/ban', async (c) => {
+  const userId = Number(c.req.param('id'))
+
+  if (!userId || isNaN(userId)) {
+    return c.json({ success: false, data: null, error: 'Invalid user ID' }, 400)
+  }
+
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?')
+    .bind(userId)
+    .first<DbUser>()
+
+  if (!user) {
+    return c.json({ success: false, data: null, error: 'User not found' }, 404)
+  }
+
+  if (user.is_active === 0) {
+    return c.json({ success: false, data: null, error: 'User đã bị khoá trước đó' }, 409)
+  }
+
+  const now = new Date().toISOString()
+  const adminId = c.get('adminId')
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      'UPDATE users SET is_active = 0, banned_at = ?, updated_at = ? WHERE id = ?'
+    ).bind(now, now, userId),
+    c.env.DB.prepare(
+      `INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, old_value, new_value, ip_address, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      adminId,
+      'ban_user',
+      'user',
+      userId,
+      JSON.stringify({ is_active: user.is_active }),
+      JSON.stringify({ is_active: 0 }),
+      c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || null,
+      now
+    ),
+  ])
+
+  return c.json({
+    success: true,
+    data: { user_id: userId, is_active: 0, banned_at: now },
+    error: null,
+  })
+})
+
+/**
+ * POST /users/:id/unban
+ * Mở khoá user: set is_active = 1, xoá banned_at, viết audit_log.
+ */
+usersRoutes.post('/:id/unban', async (c) => {
+  const userId = Number(c.req.param('id'))
+
+  if (!userId || isNaN(userId)) {
+    return c.json({ success: false, data: null, error: 'Invalid user ID' }, 400)
+  }
+
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?')
+    .bind(userId)
+    .first<DbUser>()
+
+  if (!user) {
+    return c.json({ success: false, data: null, error: 'User not found' }, 404)
+  }
+
+  if (user.is_active === 1) {
+    return c.json({ success: false, data: null, error: 'User đang hoạt động, không cần mở khoá' }, 409)
+  }
+
+  const now = new Date().toISOString()
+  const adminId = c.get('adminId')
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      'UPDATE users SET is_active = 1, banned_at = NULL, updated_at = ? WHERE id = ?'
+    ).bind(now, userId),
+    c.env.DB.prepare(
+      `INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, old_value, new_value, ip_address, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      adminId,
+      'unban_user',
+      'user',
+      userId,
+      JSON.stringify({ is_active: user.is_active }),
+      JSON.stringify({ is_active: 1 }),
+      c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || null,
+      now
+    ),
+  ])
+
+  return c.json({
+    success: true,
+    data: { user_id: userId, is_active: 1 },
+    error: null,
+  })
+})
+
 export { usersRoutes }
