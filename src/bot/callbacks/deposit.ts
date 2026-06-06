@@ -19,9 +19,8 @@ import { escapeHtml } from '../../utils/telegram-template'
 import { getSession, setSession, clearSession } from '../session'
 import { shouldSendNotice } from '../rate-limit'
 import { checkDepositPolicy, depositPolicyMessage } from '../../services/deposit-policy'
+import { readDepositLimits } from '../../services/deposit-limits'
 import { resolveBankConfig } from '../../services/bank-config'
-
-const MIN_DEPOSIT_AMOUNT = 20_000
 
 /** Mệnh giá nạp nhanh (grid 2×3) */
 const PRESET_AMOUNTS = [30_000, 50_000, 100_000, 200_000, 500_000, 1_000_000]
@@ -40,12 +39,15 @@ export async function handleDepositMenu(
   // Set session to deposit flow, step 'amount'
   setSession(userId, 'deposit', 'amount')
 
+  // Hạn mức lấy từ system_config (admin chỉnh qua CMS) — đồng bộ với Mini App + webhook SePay.
+  const { min: minAmount } = await readDepositLimits(db)
+
   const text = [
     '💰 <b>Nạp tiền</b>',
     '',
     'Chọn mệnh giá hoặc nhập số tiền tùy ý:',
     '',
-    `💡 Tối thiểu: <b>${formatCurrency(MIN_DEPOSIT_AMOUNT)}</b>`,
+    `💡 Tối thiểu: <b>${formatCurrency(minAmount)}</b>`,
     '📝 Gõ /huy để huỷ giao dịch',
   ].join('\n')
 
@@ -86,12 +88,15 @@ export async function handleDepositAmount(
   amount: number,
   env: Bindings
 ): Promise<void> {
-  // Validate amount
-  if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) {
+  // Validate amount theo hạn mức cấu hình (min/max) trong system_config — đồng bộ với
+  // Mini App (`POST /deposits`) và webhook SePay. Trước đây bot hardcode min = 20.000 và
+  // KHÔNG kiểm max → lệch luật khi admin đổi cấu hình qua CMS.
+  const { min: minAmount, max: maxAmount } = await readDepositLimits(db)
+  if (isNaN(amount) || amount < minAmount || amount > maxAmount) {
     await sendMessage(
       botToken,
       chatId,
-      `⚠️ Số tiền tối thiểu là <b>${formatCurrency(MIN_DEPOSIT_AMOUNT)}</b>. Vui lòng nhập lại.`,
+      `⚠️ Số tiền nạp phải từ <b>${formatCurrency(minAmount)}</b> đến <b>${formatCurrency(maxAmount)}</b>. Vui lòng nhập lại.`,
       { parse_mode: 'HTML' }
     )
     return

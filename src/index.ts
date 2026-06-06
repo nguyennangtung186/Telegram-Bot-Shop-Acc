@@ -8,6 +8,7 @@ import { miniAppApi } from './routes/miniapp-api'
 import { staticAssets } from './routes/static'
 import { miniAppStatic } from './routes/miniapp-static'
 import { expirePendingDeposits } from './services/deposit-expiry'
+import { sweepOrphanOrders } from './services/order-cleanup'
 
 const app = new Hono<AppEnv>()
 
@@ -39,6 +40,8 @@ export { app }
 export default {
   fetch: app.fetch,
   scheduled: async (_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) => {
+    // Cron 15 phút: hết hạn deposit pending + dọn orphan order (giao dịch mua dở dang).
     ctx.waitUntil(expirePendingDeposits(env.DB))
+    ctx.waitUntil(sweepOrphanOrders(env.DB))
   },
 }

@@ -97,7 +97,10 @@ export async function getOrCreateUser(
 ): Promise<DbUser> {
   const now = new Date().toISOString()
 
-  await db
+  // INSERT ... ON CONFLICT DO UPDATE ... RETURNING * trả về bản ghi hiện hành trong MỘT
+  // query (vừa tạo hoặc đã có), bỏ được SELECT thứ hai. `telegram_id` UNIQUE (migration
+  // 0001) nên ON CONFLICT(telegram_id) idempotent dưới đồng thời.
+  const user = await db
     .prepare(
       `INSERT INTO users (telegram_id, username, first_name, balance, is_active, last_interaction_at, created_at, updated_at)
        VALUES (?, ?, ?, 0, 1, ?, ?, ?)
@@ -105,13 +108,11 @@ export async function getOrCreateUser(
          username = excluded.username,
          first_name = excluded.first_name,
          last_interaction_at = excluded.last_interaction_at,
-         updated_at = excluded.updated_at`
+         updated_at = excluded.updated_at
+       RETURNING *`
     )
     .bind(p.telegramId, p.username, p.firstName, now, now, now)
-    .run()
+    .first<DbUser>()
 
-  return db
-    .prepare('SELECT * FROM users WHERE telegram_id = ?')
-    .bind(p.telegramId)
-    .first<DbUser>() as Promise<DbUser>
+  return user as DbUser
 }

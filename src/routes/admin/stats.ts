@@ -28,34 +28,21 @@ statsRoutes.get('/dashboard', async (c) => {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [
-    revenueToday,
-    revenue7d,
-    revenue30d,
-    revenueAll,
-    totalUsers,
-    totalOrders,
-    productsPerCategory,
-  ] = await Promise.all([
-    // Revenue today (sum of order total_amount where status=completed)
-    db.prepare(
-      `SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status = 'completed' AND created_at >= ?`
-    ).bind(todayStart).first<{ total: number }>(),
-
-    // Revenue 7 days
-    db.prepare(
-      `SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status = 'completed' AND created_at >= ?`
-    ).bind(sevenDaysAgo).first<{ total: number }>(),
-
-    // Revenue 30 days
-    db.prepare(
-      `SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status = 'completed' AND created_at >= ?`
-    ).bind(thirtyDaysAgo).first<{ total: number }>(),
-
-    // Revenue all time
-    db.prepare(
-      `SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status = 'completed'`
-    ).first<{ total: number }>(),
+  const [revenueAgg, totalUsers, totalOrders, productsPerCategory] = await Promise.all([
+    // Doanh thu today/7d/30d/all-time trong MỘT query (conditional SUM) thay vì 4 lần quét
+    // bảng orders. Lọc status='completed' (idx_orders_status_created hỗ trợ).
+    db
+      .prepare(
+        `SELECT
+           COALESCE(SUM(CASE WHEN created_at >= ?1 THEN total_amount END), 0) AS today,
+           COALESCE(SUM(CASE WHEN created_at >= ?2 THEN total_amount END), 0) AS last7,
+           COALESCE(SUM(CASE WHEN created_at >= ?3 THEN total_amount END), 0) AS last30,
+           COALESCE(SUM(total_amount), 0) AS all_time
+         FROM orders
+         WHERE status = 'completed'`
+      )
+      .bind(todayStart, sevenDaysAgo, thirtyDaysAgo)
+      .first<{ today: number; last7: number; last30: number; all_time: number }>(),
 
     // Total users
     db.prepare(`SELECT COUNT(*) as count FROM users`).first<{ count: number }>(),
@@ -77,10 +64,10 @@ statsRoutes.get('/dashboard', async (c) => {
     success: true,
     data: {
       revenue: {
-        today: revenueToday?.total ?? 0,
-        last7days: revenue7d?.total ?? 0,
-        last30days: revenue30d?.total ?? 0,
-        allTime: revenueAll?.total ?? 0,
+        today: revenueAgg?.today ?? 0,
+        last7days: revenueAgg?.last7 ?? 0,
+        last30days: revenueAgg?.last30 ?? 0,
+        allTime: revenueAgg?.all_time ?? 0,
       },
       totalUsers: totalUsers?.count ?? 0,
       totalOrders: totalOrders?.count ?? 0,

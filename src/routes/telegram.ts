@@ -99,12 +99,13 @@ telegramWebhook.post('/telegram', async (c) => {
       await handleTextMessage(db, botToken, update.message, env)
     }
 
-    // Fire-and-forget: update last_interaction_at for the user
+    // Fire-and-forget: update last_interaction_at for the user (ISO 8601 UTC — đồng nhất
+    // định dạng timestamp với phần còn lại của hệ thống, vốn dùng `toISOString()`).
     if (telegramId) {
       c.executionCtx.waitUntil(
         db
-          .prepare('UPDATE users SET last_interaction_at = datetime(\'now\') WHERE telegram_id = ?')
-          .bind(telegramId)
+          .prepare('UPDATE users SET last_interaction_at = ? WHERE telegram_id = ?')
+          .bind(new Date().toISOString(), telegramId)
           .run()
           .catch(() => {
             // Silent fail — user might not exist yet (pre-/start)

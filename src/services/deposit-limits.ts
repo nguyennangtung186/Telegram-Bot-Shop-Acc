@@ -11,6 +11,8 @@
  * (fail-safe). Nếu `min > max` (config mâu thuẫn) → hoán đổi để khoảng luôn hợp lệ.
  */
 
+import { readSystemConfigMap } from '../utils/system-config'
+
 /** Fallback khi `system_config` thiếu key — khớp giá trị seed migration `0001`. */
 export const DEFAULT_MIN_DEPOSIT = 20_000
 export const DEFAULT_MAX_DEPOSIT = 100_000_000
@@ -27,11 +29,8 @@ export interface DepositLimits {
  * SELECT cả hai key `min_deposit`/`max_deposit` trong một query, parse số nguyên dương.
  */
 export async function readDepositLimits(db: D1Database): Promise<DepositLimits> {
-  const { results } = await db
-    .prepare("SELECT key, value FROM system_config WHERE key IN ('min_deposit', 'max_deposit')")
-    .all<{ key: string; value: string }>()
+  const byKey = await readSystemConfigMap(db, ['min_deposit', 'max_deposit'])
 
-  const byKey = new Map(results.map((r) => [r.key, r.value]))
   let min = parsePositiveInt(byKey.get('min_deposit'), DEFAULT_MIN_DEPOSIT)
   let max = parsePositiveInt(byKey.get('max_deposit'), DEFAULT_MAX_DEPOSIT)
   if (min > max) [min, max] = [max, min]

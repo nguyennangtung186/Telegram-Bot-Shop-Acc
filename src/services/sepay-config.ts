@@ -12,6 +12,7 @@
  */
 
 import type { Bindings } from '../types/bindings'
+import { readSystemConfigValue, preferDbValue } from '../utils/system-config'
 
 /** Key `system_config` lưu API key webhook SePay (do CMS ghi). */
 export const SEPAY_API_KEY_CONFIG = 'sepay_api_key'
@@ -23,11 +24,5 @@ export const SEPAY_API_KEY_CONFIG = 'sepay_api_key'
  *          caller (middleware) phải coi rỗng là "không thể xác thực" và từ chối request.
  */
 export async function resolveSepayApiKey(db: D1Database, env: Bindings): Promise<string> {
-  const row = await db
-    .prepare('SELECT value FROM system_config WHERE key = ?')
-    .bind(SEPAY_API_KEY_CONFIG)
-    .first<{ value: string }>()
-
-  const dbValue = row?.value?.trim()
-  return dbValue ? dbValue : (env.SEPAY_API_KEY ?? '')
+  return preferDbValue(await readSystemConfigValue(db, SEPAY_API_KEY_CONFIG), env.SEPAY_API_KEY)
 }
