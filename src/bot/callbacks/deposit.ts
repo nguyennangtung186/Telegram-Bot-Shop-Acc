@@ -15,9 +15,11 @@ import {
 import { generateTransferCode } from '../../utils/transfer-code'
 import { generateVietQRUrl } from '../../utils/vietqr'
 import { formatCurrency } from '../../utils/format'
+import { escapeHtml } from '../../utils/telegram-template'
 import { getSession, setSession, clearSession } from '../session'
 import { shouldSendNotice } from '../rate-limit'
 import { checkDepositPolicy, depositPolicyMessage } from '../../services/deposit-policy'
+import { resolveBankConfig } from '../../services/bank-config'
 
 const MIN_DEPOSIT_AMOUNT = 20_000
 
@@ -147,11 +149,14 @@ export async function handleDepositAmount(
     )
   }
 
+  // Thông tin ngân hàng: DB (system_config) ưu tiên, fallback env Worker.
+  const bank = await resolveBankConfig(db, env)
+
   // Generate VietQR URL
   const qrUrl = generateVietQRUrl({
-    bankId: env.BANK_NAME,
-    accountNo: env.BANK_ACCOUNT,
-    accountName: env.BANK_OWNER,
+    bankId: bank.bankName,
+    accountNo: bank.bankAccount,
+    accountName: bank.bankOwner,
     amount,
     description: transferCode,
   })
@@ -166,9 +171,9 @@ export async function handleDepositAmount(
   const detailText = [
     '💸 <b>Thông tin chuyển khoản</b>',
     '',
-    `🏦 Ngân hàng: <b>${env.BANK_NAME}</b>`,
-    `💳 Số TK: <code>${env.BANK_ACCOUNT}</code>`,
-    `👤 Chủ TK: <b>${env.BANK_OWNER}</b>`,
+    `🏦 Ngân hàng: <b>${escapeHtml(bank.bankName)}</b>`,
+    `💳 Số TK: <code>${escapeHtml(bank.bankAccount)}</code>`,
+    `👤 Chủ TK: <b>${escapeHtml(bank.bankOwner)}</b>`,
     `💰 Số tiền: <b>${formatCurrency(amount)}</b>`,
     `📝 Nội dung CK: <code>${transferCode}</code>`,
     '',

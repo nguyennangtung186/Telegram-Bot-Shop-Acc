@@ -38,6 +38,7 @@ import { renderSuccessMessage, escapeHtml } from '../utils/telegram-template'
 import { sendMessage, sendPhoto } from '../bot/telegram-api'
 import { consumeToken, PURCHASE_RULE } from '../bot/rate-limit'
 import { checkDepositPolicy, depositPolicyMessage } from '../services/deposit-policy'
+import { resolveBankConfig } from '../services/bank-config'
 import { generateTransferCode } from '../utils/transfer-code'
 import { generateVietQRUrl } from '../utils/vietqr'
 
@@ -392,17 +393,18 @@ interface DepositCaptionParams {
  * Dựng caption HTML cho ảnh VietQR gửi qua bot khi tạo yêu cầu nạp (Req 10.1).
  *
  * Mirror nội dung "Thông tin chuyển khoản" của flow bot (`handleDepositAmount`).
- * ESCAPE HTML cho giá trị động `owner` (chủ TK) và `transferCode` (nội dung CK) để
- * ký tự đặc biệt không phá vỡ HTML/khỏi rủi ro injection (Req 10.3, 15.1). `amount`
- * là số nguyên đã `formatCurrency`, `bank`/`account` là hằng cấu hình.
+ * ESCAPE HTML cho mọi giá trị động (`bank`, `account`, `owner`, `transferCode`) vì nay
+ * thông tin ngân hàng lấy từ `system_config` (admin nhập qua CMS) — ký tự đặc biệt không
+ * được phá vỡ HTML/khỏi rủi ro injection (Req 10.3, 15.1). `amount` là số nguyên đã
+ * `formatCurrency`.
  */
 function buildDepositCaption(params: DepositCaptionParams): string {
   const { bank, account, owner, amount, transferCode } = params
   return [
     '💸 <b>Thông tin chuyển khoản</b>',
     '',
-    `🏦 Ngân hàng: <b>${bank}</b>`,
-    `💳 Số TK: <code>${account}</code>`,
+    `🏦 Ngân hàng: <b>${escapeHtml(bank)}</b>`,
+    `💳 Số TK: <code>${escapeHtml(account)}</code>`,
     `👤 Chủ TK: <b>${escapeHtml(owner)}</b>`,
     `💰 Số tiền: <b>${formatCurrency(amount)}</b>`,
     `📝 Nội dung CK: <code>${escapeHtml(transferCode)}</code>`,
@@ -473,11 +475,14 @@ miniAppApi.post('/deposits', async (c) => {
     .bind(user.id, transferCode, amount, now)
     .first<{ id: number }>()
 
+  // Thông tin ngân hàng: DB (system_config) ưu tiên, fallback env Worker (Req 8.4).
+  const bank = await resolveBankConfig(c.env.DB, c.env)
+
   // Dựng VietQR URL (Req 8.4) — addInfo = transfer_code để SePay đối soát.
   const qrUrl = generateVietQRUrl({
-    bankId: c.env.BANK_NAME,
-    accountNo: c.env.BANK_ACCOUNT,
-    accountName: c.env.BANK_OWNER,
+    bankId: bank.bankName,
+    accountNo: bank.bankAccount,
+    accountName: bank.bankOwner,
     amount,
     description: transferCode,
   })
@@ -485,9 +490,9 @@ miniAppApi.post('/deposits', async (c) => {
   // Đồng bộ bot SAU commit (Req 10.1) — gửi ảnh VietQR + caption fire-and-forget,
   // lỗi gửi tin chỉ log, KHÔNG rollback yêu cầu nạp đã tạo (Req 10.4).
   const caption = buildDepositCaption({
-    bank: c.env.BANK_NAME,
-    account: c.env.BANK_ACCOUNT,
-    owner: c.env.BANK_OWNER,
+    bank: bank.bankName,
+    account: bank.bankAccount,
+    owner: bank.bankOwner,
     amount,
     transferCode,
   })
@@ -503,9 +508,9 @@ miniAppApi.post('/deposits', async (c) => {
     transfer_code: transferCode,
     amount,
     amount_display: formatCurrency(amount),
-    bank_name: c.env.BANK_NAME,
-    bank_account: c.env.BANK_ACCOUNT,
-    bank_owner: c.env.BANK_OWNER,
+    bank_name: bank.bankName,
+    bank_account: bank.bankAccount,
+    bank_owner: bank.bankOwner,
     qr_url: qrUrl,
     status: 'pending',
   }
