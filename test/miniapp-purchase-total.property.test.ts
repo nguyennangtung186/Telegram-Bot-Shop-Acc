@@ -34,6 +34,13 @@ const BOT_TOKEN = 'test-bot-token'
 // --- Schema tối thiểu cho mua hàng (đồng bộ test/integration.test.ts) ---
 
 const SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS system_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`,
   `CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     telegram_id INTEGER UNIQUE NOT NULL,

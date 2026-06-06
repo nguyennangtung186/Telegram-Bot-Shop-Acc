@@ -36,6 +36,13 @@ const FIRST_NAME = 'Buyer'
 // Schema tối thiểu cho luồng mua hàng (trích từ migration 0001 / test/integration.test.ts),
 // product_types có thêm cột `success_template` để controller dựng tin nhắn bot đúng như runtime.
 const SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS system_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`,
   `CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     telegram_id INTEGER UNIQUE NOT NULL,

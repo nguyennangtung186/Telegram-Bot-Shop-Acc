@@ -40,6 +40,7 @@ import { consumeToken, PURCHASE_RULE } from '../bot/rate-limit'
 import { checkDepositPolicy, depositPolicyMessage } from '../services/deposit-policy'
 import { readDepositLimits } from '../services/deposit-limits'
 import { resolveBankConfig } from '../services/bank-config'
+import { resolveBotToken } from '../services/telegram-config'
 import { generateTransferCode } from '../utils/transfer-code'
 import { generateVietQRUrl } from '../utils/vietqr'
 
@@ -321,7 +322,7 @@ miniAppApi.post('/purchase', async (c) => {
     balanceAfter,
     contents,
   })
-  const notify = sendMessage(c.env.BOT_TOKEN, user.telegram_id, html, { parse_mode: 'HTML' }).catch(
+  const notify = sendMessage(await resolveBotToken(c.env.DB, c.env), user.telegram_id, html, { parse_mode: 'HTML' }).catch(
     (err) => console.error('[MiniApp] notify purchase failed:', err)
   )
   c.executionCtx?.waitUntil?.(notify)
@@ -461,7 +462,7 @@ miniAppApi.post('/deposits', async (c) => {
     amount,
     transferCode,
   })
-  const notify = sendPhoto(c.env.BOT_TOKEN, user.telegram_id, qrUrl, {
+  const notify = sendPhoto(await resolveBotToken(c.env.DB, c.env), user.telegram_id, qrUrl, {
     caption,
     parse_mode: 'HTML',
   }).catch((err) => console.error('[MiniApp] notify deposit failed:', err))

@@ -40,6 +40,16 @@ const USERS_TABLE = `CREATE TABLE IF NOT EXISTS users (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`
 
+// Bảng system_config cần tồn tại vì miniAppAuth resolve bot_token DB-first.
+// Để rỗng → fallback về env.BOT_TOKEN (BOT_TOKEN dưới đây).
+const SYSTEM_CONFIG_TABLE = `CREATE TABLE IF NOT EXISTS system_config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  description TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_by INTEGER
+)`
+
 // --- Hono app standalone: middleware miniAppAuth + 1 route nghiệp vụ "probe" ---
 
 let businessHit = 0
@@ -135,6 +145,7 @@ function buildUserField(v: ValidInput): Record<string, string> {
 
 beforeEach(async () => {
   await env.DB.prepare(USERS_TABLE).run()
+  await env.DB.prepare(SYSTEM_CONFIG_TABLE).run()
   await env.DB.prepare('DELETE FROM users').run()
   businessHit = 0
 })

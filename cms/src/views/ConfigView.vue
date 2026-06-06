@@ -19,13 +19,17 @@ const form = ref({
   bank_name: '',
   bank_account: '',
   bank_owner: '',
+  bot_token: '',
+  telegram_secret_token: '',
   sepay_api_key: '',
   min_deposit: '20000',
   max_deposit: '100000000',
   admin_ids: '',
 })
 
-// Ẩn/hiện SePay API key (mặc định ẩn vì là thông tin bí mật)
+// Ẩn/hiện các giá trị bí mật (mặc định ẩn)
+const showBotToken = ref(false)
+const showTgSecret = ref(false)
 const showSepayKey = ref(false)
 
 async function loadConfig() {
@@ -39,6 +43,8 @@ async function loadConfig() {
       form.value.bank_name = c.bank_name ?? ''
       form.value.bank_account = c.bank_account ?? ''
       form.value.bank_owner = c.bank_owner ?? ''
+      form.value.bot_token = c.bot_token ?? ''
+      form.value.telegram_secret_token = c.telegram_secret_token ?? ''
       form.value.sepay_api_key = c.sepay_api_key ?? ''
       form.value.min_deposit = c.min_deposit ?? '20000'
       form.value.max_deposit = c.max_deposit ?? '100000000'
@@ -187,7 +193,50 @@ onUnmounted(() => { if (revenueChart) { revenueChart.destroy(); revenueChart = n
         <section class="card p-5 space-y-4">
           <h3 class="section-head"><Icon name="store" :size="18" /> Thông tin cửa hàng</h3>
           <div><label class="label">Tên shop</label><input v-model="form.shop_name" class="field" placeholder="Shop Acc VN" /></div>
-          <div><label class="label">Admin Telegram IDs</label><input v-model="form.admin_ids" class="field" placeholder="123456789,987654321" /><p class="hint">Phân tách bằng dấu phẩy</p></div>
+        </section>
+
+        <!-- Telegram Bot -->
+        <section class="card p-5 space-y-4">
+          <h3 class="section-head"><Icon name="settings" :size="18" /> Telegram Bot</h3>
+          <div>
+            <label class="label">Bot Token</label>
+            <div class="key-row">
+              <input
+                v-model="form.bot_token"
+                :type="showBotToken ? 'text' : 'password'"
+                class="field"
+                placeholder="123456:ABC-DEF..."
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="button" class="key-toggle" :title="showBotToken ? 'Ẩn' : 'Hiện'" @click="showBotToken = !showBotToken">
+                <Icon :name="showBotToken ? 'eyeOff' : 'eye'" :size="16" />
+              </button>
+            </div>
+            <p class="hint">Token bot từ @BotFather. Để trống sẽ dùng secret BOT_TOKEN của Worker.</p>
+          </div>
+          <div>
+            <label class="label">Webhook Secret Token</label>
+            <div class="key-row">
+              <input
+                v-model="form.telegram_secret_token"
+                :type="showTgSecret ? 'text' : 'password'"
+                class="field"
+                placeholder="Chuỗi bí mật xác thực webhook"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="button" class="key-toggle" :title="showTgSecret ? 'Ẩn' : 'Hiện'" @click="showTgSecret = !showTgSecret">
+                <Icon :name="showTgSecret ? 'eyeOff' : 'eye'" :size="16" />
+              </button>
+            </div>
+            <p class="hint">Khớp secret_token khi setWebhook (header X-Telegram-Bot-Api-Secret-Token). Để trống sẽ dùng secret TELEGRAM_SECRET_TOKEN của Worker.</p>
+          </div>
+          <div>
+            <label class="label">Admin Telegram IDs</label>
+            <input v-model="form.admin_ids" class="field" placeholder="123456789,987654321" />
+            <p class="hint">Phân tách bằng dấu phẩy. Để trống sẽ dùng var ADMIN_IDS của Worker.</p>
+          </div>
         </section>
 
         <!-- Bank -->

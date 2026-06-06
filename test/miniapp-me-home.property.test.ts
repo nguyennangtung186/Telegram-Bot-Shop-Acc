@@ -47,6 +47,16 @@ const USERS_TABLE = `CREATE TABLE IF NOT EXISTS users (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`
 
+// Bảng system_config cần tồn tại vì miniAppAuth resolve bot_token DB-first.
+// Để rỗng → fallback về env.BOT_TOKEN.
+const SYSTEM_CONFIG_TABLE = `CREATE TABLE IF NOT EXISTS system_config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  description TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_by INTEGER
+)`
+
 function getEnvBindings() {
   return { DB: env.DB, BOT_TOKEN }
 }
@@ -153,6 +163,7 @@ async function insertBuyer(b: BuyerInput): Promise<void> {
 
 beforeEach(async () => {
   await env.DB.prepare(USERS_TABLE).run()
+  await env.DB.prepare(SYSTEM_CONFIG_TABLE).run()
   await env.DB.prepare('DELETE FROM users').run()
 })
 

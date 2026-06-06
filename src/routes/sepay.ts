@@ -10,6 +10,7 @@ import { sepayAuth } from '../middleware/sepay-auth'
 import { transactionService } from '../services/transaction'
 import { DEPOSIT_TTL_MS } from '../services/deposit-policy'
 import { readDepositLimits } from '../services/deposit-limits'
+import { resolveBotToken } from '../services/telegram-config'
 import { sendMessage } from '../bot/telegram-api'
 import { formatCurrency } from '../utils/format'
 
@@ -44,7 +45,6 @@ sepayWebhook.use('/sepay', sepayAuth)
 
 sepayWebhook.post('/sepay', async (c) => {
   const db = c.env.DB
-  const botToken = c.env.BOT_TOKEN
 
   // Parse payload
   let payload: SepayWebhookPayload
@@ -130,6 +130,7 @@ sepayWebhook.post('/sepay', async (c) => {
 
   // Gửi notification cho user nếu thành công (Req 2.11) — async via waitUntil
   if (result.success && result.newBalance !== undefined) {
+    const botToken = await resolveBotToken(db, c.env)
     const notificationText = [
       '✅ Nạp tiền thành công!',
       '',

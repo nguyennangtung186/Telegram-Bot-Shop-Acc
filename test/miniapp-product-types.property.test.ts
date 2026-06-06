@@ -40,6 +40,13 @@ const BUYER_TELEGRAM_ID = 777_000_222
 // --- Schema (khớp migration 0001 + 0002 success_template) ---
 
 const SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS system_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER
+  )`,
   `CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     telegram_id INTEGER UNIQUE NOT NULL,

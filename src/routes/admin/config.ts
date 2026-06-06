@@ -37,6 +37,25 @@ configRoutes.get('/', async (c) => {
     configs[row.key] = row.value
   }
 
+  // Hiển thị GIÁ TRỊ HIỆU LỰC (DB-first, fallback env): với các key được backing bằng
+  // secret/var của Worker, nếu DB trống thì điền giá trị env để CMS không hiển thị trống
+  // và admin có thể lưu lại (promote env -> DB). Khớp logic resolve ở runtime.
+  const envFallback: Record<string, string | undefined> = {
+    bank_name: c.env.BANK_NAME,
+    bank_account: c.env.BANK_ACCOUNT,
+    bank_owner: c.env.BANK_OWNER,
+    bot_token: c.env.BOT_TOKEN,
+    telegram_secret_token: c.env.TELEGRAM_SECRET_TOKEN,
+    admin_ids: c.env.ADMIN_IDS,
+    sepay_api_key: c.env.SEPAY_API_KEY,
+  }
+  for (const [key, envValue] of Object.entries(envFallback)) {
+    const current = configs[key]
+    if ((current === undefined || current.trim() === '') && envValue && envValue.trim() !== '') {
+      configs[key] = envValue
+    }
+  }
+
   return c.json({
     success: true,
     data: { configs },

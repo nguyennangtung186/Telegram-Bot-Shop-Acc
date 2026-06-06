@@ -12,6 +12,7 @@ import {
 } from '../bot/rate-limit'
 import { answerCallbackQuery, sendMessage } from '../bot/telegram-api'
 import { isTelegramUserBanned, BAN_NOTICE } from '../services/user-ban'
+import { resolveTelegramRuntimeConfig } from '../services/telegram-config'
 
 /**
  * Telegram webhook route — POST /webhook/telegram
@@ -26,7 +27,11 @@ telegramWebhook.post('/telegram', async (c) => {
   try {
     const update = await c.req.json<TelegramUpdate>()
     const db = c.env.DB
-    const botToken = c.env.BOT_TOKEN
+
+    // Resolve bot_token + admin_ids (DB-first, fallback env). Override env truyền xuống
+    // router để mọi nhánh đọc `env.BOT_TOKEN`/`env.ADMIN_IDS` đều dùng giá trị đã resolve.
+    const { botToken, adminIds } = await resolveTelegramRuntimeConfig(db, c.env)
+    const env = { ...c.env, BOT_TOKEN: botToken, ADMIN_IDS: adminIds }
 
     // Extract telegram_id from the update for last_interaction_at tracking
     let telegramId: number | undefined
@@ -60,7 +65,7 @@ telegramWebhook.post('/telegram', async (c) => {
         return c.json({ ok: true })
       }
 
-      await handleCallbackQuery(db, botToken, update.callback_query, c.env)
+      await handleCallbackQuery(db, botToken, update.callback_query, env)
     } else if (update.message) {
       telegramId = update.message.from?.id
 
@@ -89,13 +94,9 @@ telegramWebhook.post('/telegram', async (c) => {
 
       const text = update.message.text?.trim() ?? ''
 
-      if (text.startsWith('/')) {
-        // Command — still dispatched via handleTextMessage which handles /start, /admin, /huy, /cancel
-        await handleTextMessage(db, botToken, update.message, c.env)
-      } else {
-        // Regular text message (reply keyboard, session input, etc.)
-        await handleTextMessage(db, botToken, update.message, c.env)
-      }
+      // /start, /admin, /huy, /cancel lẫn text thường (reply keyboard, session input)
+      // đều được điều phối qua handleTextMessage.
+      await handleTextMessage(db, botToken, update.message, env)
     }
 
     // Fire-and-forget: update last_interaction_at for the user
