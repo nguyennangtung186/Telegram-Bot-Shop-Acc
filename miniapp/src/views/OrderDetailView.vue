@@ -1,0 +1,121 @@
+<script setup lang="ts">
+/**
+ * OrderDetailView — chi tiết một đơn hàng + nội dung tài khoản (Req 11.3, 15.3).
+ *
+ *  - Nhận prop `id` (chuỗi, từ route `order-detail` với `props: true`).
+ *  - Khi mở: gọi `GET /api/app/orders/:id` (bọc `ui.withLoading`). Server chỉ trả đơn
+ *    thuộc người mua hiện tại (guard owner — Req 15.3); nếu không thuộc/không tồn tại sẽ
+ *    trả 404 → toast "Không tìm thấy đơn hàng".
+ *  - Hiển thị tóm tắt đơn (emoji, tên loại, số lượng, tổng tiền, trạng thái, thời gian tạo)
+ *    rồi tới danh sách `contents[]` — mỗi tài khoản trong một khối kính cho phép bôi chọn
+ *    (`select-all`) để người mua copy nhanh, giống màn kết quả mua hàng (Req 11.3).
+ *  - BackButton của Telegram để quay lại lịch sử; gỡ khi rời màn hình qua cleanup.
+ *
+ * Bố cục mobile-first iOS HIG, chỉ dùng màu phẳng + lớp `.glass` — KHÔNG gradient (Req 13).
+ */
+
+import { onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import GlassCard from '@/components/GlassCard.vue'
+import { get, ApiError } from '@/api/client'
+import { useUiStore } from '@/stores/ui'
+import { showBackButton, type Cleanup } from '@/telegram/sdk'
+import { formatDate } from '@/utils/format'
+import type { OrderDetailDto } from '@/types'
+
+const props = defineProps<{
+  /** Id đơn hàng (chuỗi từ route param). */
+  id: string
+}>()
+
+const router = useRouter()
+const ui = useUiStore()
+
+/** Chi tiết đơn hàng; `null` cho tới khi tải xong (hoặc khi không tìm thấy). */
+const order = ref<OrderDetailDto | null>(null)
+
+/** Dọn dẹp BackButton (gỡ handler + ẩn) khi rời màn hình. */
+let cleanupBack: Cleanup = () => {}
+
+/** Map trạng thái đơn của server sang nhãn tiếng Việt hiển thị (Req 11.2). */
+function statusLabel(status: OrderDetailDto['status']): string {
+  switch (status) {
+    case 'completed':
+      return 'Hoàn thành'
+    case 'refunded':
+      return 'Đã hoàn tiền'
+    default:
+      return status
+  }
+}
+
+/**
+ * Nạp chi tiết đơn từ server (Req 11.3). 404 (đơn không tồn tại hoặc không thuộc người
+ * mua — Req 15.3) → toast riêng; 401 do client xử lý; lỗi khác → toast chung.
+ */
+async function load(): Promise<void> {
+  try {
+    order.value = await ui.withLoading(get<OrderDetailDto>(`/orders/${props.id}`))
+  } catch (err) {
+    if (err instanceof ApiError) {
+      if (err.status === 401) return
+      if (err.status === 404) {
+        ui.toast('Không tìm thấy đơn hàng.', 'error')
+        return
+      }
+    }
+    ui.toast('Không tải được chi tiết đơn hàng. Vui lòng thử lại.', 'error')
+  }
+}
+
+onMounted(() => {
+  cleanupBack = showBackButton(() => router.back())
+  void load()
+})
+
+onUnmounted(() => {
+  cleanupBack()
+})
+</script>
+
+<template>
+  <main class="flex flex-col gap-5 px-4 py-6">
+    <template v-if="order">
+      <!-- Tóm tắt đơn (Req 11.2, 11.3) -->
+      <header class="flex flex-col items-center gap-2 text-center">
+        <span class="text-6xl leading-none" aria-hidden="true">{{ order.emoji }}</span>
+        <h1 class="text-ios-title text-text">{{ order.product_name }}</h1>
+        <p class="text-ios-title tabular-nums text-accent">{{ order.total_display }}</p>
+      </header>
+
+      <GlassCard>
+        <dl class="flex flex-col gap-2 text-ios-body">
+          <div class="flex items-center justify-between gap-2">
+            <dt class="text-hint">Số lượng</dt>
+            <dd class="tabular-nums text-text">{{ order.quantity }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <dt class="text-hint">Trạng thái</dt>
+            <dd class="text-text">{{ statusLabel(order.status) }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <dt class="text-hint">Thời gian</dt>
+            <dd class="tabular-nums text-text">{{ formatDate(order.created_at) }}</dd>
+          </div>
+        </dl>
+      </GlassCard>
+
+      <!-- Nội dung tài khoản thuộc đơn (Req 11.3) -->
+      <section class="flex flex-col gap-2" aria-label="Nội dung tài khoản">
+        <h2 class="px-1 text-ios-footnote text-hint">Tài khoản của bạn</h2>
+        <p
+          v-for="(content, idx) in order.contents"
+          :key="idx"
+          class="glass select-all whitespace-pre-wrap break-all p-4 text-ios-body text-text"
+        >
+          {{ content }}
+        </p>
+      </section>
+    </template>
+  </main>
+</template>

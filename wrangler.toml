@@ -1,0 +1,31 @@
+name = "telegram-shop-bot"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static assets cho CMS (dist/cms) + Mini App (dist/miniapp)
+# Bucket = ./dist nên KV key có prefix theo thư mục con: cms/..., miniapp/...
+[site]
+bucket = "./dist"
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "telegram-shop-bot-db"
+database_id = "373a0e18-c822-4786-8a76-14836c40253e"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["*/15 * * * *"]  # Expire pending deposits mỗi 15 phút
+
+# Secrets (set via `wrangler secret put`):
+# BOT_TOKEN
+# TELEGRAM_SECRET_TOKEN
+# SEPAY_API_KEY
+# ADMIN_IDS
+# JWT_SECRET
+# BANK_NAME
+# BANK_ACCOUNT
+# BANK_OWNER

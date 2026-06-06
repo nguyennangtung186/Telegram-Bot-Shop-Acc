@@ -1,0 +1,34 @@
+{
+  "name": "telegram-shop-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "predeploy": "npm run build:all",
+    "deploy": "wrangler deploy",
+    "build:cms": "npm run --prefix cms build",
+    "build:miniapp": "npm --prefix miniapp install && npm run --prefix miniapp build",
+    "build:all": "npm run build:cms && npm run build:miniapp",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:no-gradient": "node test/check_no_gradient.mjs",
+    "db:migrate:local": "wrangler d1 migrations apply telegram-shop-bot-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply telegram-shop-bot-db --remote"
+  },
+  "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.4.2",
+    "bcryptjs": "^2.4.3",
+    "hono": "^4.6.0",
+    "jose": "^5.9.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.0",
+    "@cloudflare/workers-types": "^4.20241205.0",
+    "@types/bcryptjs": "^2.4.6",
+    "fast-check": "^3.22.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "wrangler": "^3.99.0"
+  }
+}

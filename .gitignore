@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.playwright-mcp/
+*.log
+.DS_Store
+package-lock.json
+cms/node_modules/
+miniapp/node_modules/

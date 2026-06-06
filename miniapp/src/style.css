@@ -1,0 +1,132 @@
+/*
+ * Design system — Telegram Mini App
+ * iOS HIG + liquid glass. Chỉ dùng MÀU PHẲNG + lớp kính translucent
+ * (alpha thấp + blur). KHÔNG dùng hiệu ứng chuyển-màu-nền (Req 13.2, 13.3).
+ *
+ * CSS variables được đổ từ Telegram themeParams lúc runtime
+ * (xem src/telegram/theme.ts). Giá trị dưới đây là fallback hợp lý
+ * cho light/dark khi thiếu param.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Nền & chữ — đổ từ themeParams (Req 13.6), fallback màu phẳng iOS. */
+  --tg-bg: var(--tg-theme-bg-color, #ffffff);
+  --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #f2f2f7); /* iOS systemGray6 */
+  --tg-text: var(--tg-theme-text-color, #1c1c1e);
+  --tg-hint: var(--tg-theme-hint-color, #8e8e93); /* iOS systemGray */
+  --tg-accent: var(--tg-theme-button-color, #007aff); /* iOS systemBlue */
+  --tg-accent-text: var(--tg-theme-button-text-color, #ffffff);
+
+  /* Vật liệu liquid glass — màu phẳng + alpha (KHÔNG phủ hiệu ứng chuyển màu). */
+  --glass-fill: rgba(255, 255, 255, 0.55);
+  --glass-stroke: rgba(255, 255, 255, 0.40);
+  --glass-blur: 20px;
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  /* Màu hệ thống iOS (phẳng). */
+  --ios-green: #34c759;
+  --ios-red: #ff3b30;
+  --ios-orange: #ff9500;
+
+  /* Easing chuẩn iOS (Req 13.4). */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-fade: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-ios: 280ms;
+
+  /* Safe-area (Req 13.7) — fallback env() khi Telegram không cấp giá trị. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* Chế độ tối — kích hoạt qua class `.dark` trên <html> (theo colorScheme Telegram)
+ * hoặc qua [data-theme='dark']. Chỉ override màu phẳng + vật liệu kính. */
+:root.dark,
+:root[data-theme='dark'] {
+  --tg-bg: var(--tg-theme-bg-color, #000000);
+  --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #1c1c1e);
+  --tg-text: var(--tg-theme-text-color, #ffffff);
+  --tg-hint: var(--tg-theme-hint-color, #8e8e93);
+  --tg-accent: var(--tg-theme-button-color, #0a84ff);
+  --tg-accent-text: var(--tg-theme-button-text-color, #ffffff);
+
+  --glass-fill: rgba(28, 28, 30, 0.55);
+  --glass-stroke: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    /* Màu nền/chữ phẳng theo theme; font hệ thống iOS. */
+    background-color: var(--tg-bg);
+    color: var(--tg-text);
+    font-family: -apple-system, 'SF Pro Text', system-ui, 'Segoe UI', Roboto,
+      sans-serif;
+    font-size: 17px; /* iOS Body */
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* iOS: bỏ highlight xanh khi chạm. */
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    min-height: 100vh;
+  }
+
+  /* Tôn trọng safe-area khi bố cục nội dung gốc (Req 13.7). */
+  #app {
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  /* Vật liệu liquid glass: nền translucent màu phẳng + blur + viền 1px + bóng nhẹ.
+   * Tuyệt đối không phủ hiệu ứng chuyển màu (Req 13.2, 13.3). */
+  .glass {
+    background-color: var(--glass-fill);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-stroke);
+    box-shadow: var(--glass-shadow);
+    border-radius: 20px;
+  }
+
+  /* Target chạm tối thiểu kiểu iOS HIG (≥ 44px). */
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Tôn trọng tuỳ chọn giảm chuyển động của hệ thống (Req 13.4). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* NGOẠI LỆ: spinner là chỉ báo hoạt động (loading), KHÔNG phải chuyển động
+   * trang trí. Theo iOS HIG, activity indicator vẫn xoay khi bật Reduce Motion —
+   * nếu để rule `*` ở trên ép iteration-count:1 + duration ~0 thì icon loading
+   * đứng im, người dùng tưởng app treo. Selector class thắng `*` về specificity. */
+  .animate-spin {
+    animation: spin 1s linear infinite !important;
+  }
+}
